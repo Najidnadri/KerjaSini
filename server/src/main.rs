@@ -1,37 +1,46 @@
-struct LoginDetails {
-    creds: Creds,
-    pass: String,
-}
+mod login_signup;
 
-enum Creds {
-    Email,
-    Name,
-    PhoneNumber,
-}
+use actix_web::{post, Responder, HttpServer, App, HttpResponse, web};
+use crate::login_signup::{EmployeeSignupInfo, EmployerSignupInfo, EmployeeLoginCreds, EmployerLoginCreds};
 
-struct SignupDetails {
-    name: String,
-    email: String,
-    phone_number: String,
-    password: String,
-    postcode: String,
-}
-
-impl SignupDetails {
-    fn new() -> Self {
-        SignupDetails { name: String::new(), email: String::new(), phone_number: String::new(), password: String::new(), postcode: String::new() }
-    }
-}
-
-fn main() {
+#[actix_web::main]
+async fn main() -> Result<(), Box<dyn std::error::Error>> {
     //set up demo data
-    let signup_demo = SignupDetails{
-        name: "Najidnadri".to_string(),
-        email: "muhd.najid.nadri@gmail.com".to_string(),
-        phone_number: "0193187167".to_string(),
-        password: "12345678".to_string(),
-        postcode: "143143".to_string(),
-    };
 
-    
+
+    //run up the server
+    println!("actix web go!");
+
+    HttpServer::new(|| {
+        App::new()
+        .service(employee_signup)
+    })
+    .bind(("127.0.0.1", 8000))?
+    .workers(4)
+    .run()
+    .await
+    .unwrap();
+
+    Ok(())
+}
+
+#[post("/employeesignup")]
+async fn employee_signup(body: web::Json<EmployeeSignupInfo>) -> impl Responder {
+    println!("{:?}", body);
+    HttpResponse::Ok()
+}
+
+#[post("/employersignup")]
+async fn employer_signup(body: web::Json<EmployerSignupInfo>) -> impl Responder {
+    HttpResponse::Ok()
+}
+
+#[post("/employeelogin")]
+async fn employee_login(body: web::Json<EmployeeLoginCreds>) -> impl Responder {
+    HttpResponse::Ok()
+}
+
+#[post("/employerlogin")]
+async fn employer_login(body: web::Json<EmployerLoginCreds>) -> impl Responder {
+    HttpResponse::Ok()
 }
