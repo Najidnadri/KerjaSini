@@ -34,7 +34,7 @@ impl App for Event {
             Page::MainLogin => mainlogin::main_login(self, ctx),
             Page::EmployeeLogin => mainlogin::employee_login(self, ctx),
             Page::EmployerLogin => mainlogin::employer_login(self, ctx),
-            Page::EmployeeSignup => (),
+            Page::EmployeeSignup => signup::employee_signup(self, ctx),
             Page::EmployerSignup=> signup::employer_signup(self, ctx),
         }
     }
