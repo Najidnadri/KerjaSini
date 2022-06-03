@@ -1,6 +1,6 @@
 use eframe::epi::App;
 
-use crate::{mainlogin::{self, EmployeeLoginCreds, EmployerLoginCreds}, main};
+use crate::{mainlogin::{self, EmployeeLoginCreds, EmployerLoginCreds}, signup::{self, EmployerSignupInfo, EmployeeSignupInfo}};
 
 pub struct Event {
     pub data: Data,
@@ -10,11 +10,13 @@ pub struct Event {
 pub struct Data {
     pub employee_login: EmployeeLoginCreds,
     pub employer_login: EmployerLoginCreds,
+    pub employer_signup: EmployerSignupInfo,
+    pub employee_signup: EmployeeSignupInfo,
 }
 
 impl Data {
     pub fn new() -> Self {
-        Data { employee_login: EmployeeLoginCreds::new(), employer_login: EmployerLoginCreds::new() }
+        Data { employee_login: EmployeeLoginCreds::new(), employer_login: EmployerLoginCreds::new(), employer_signup: EmployerSignupInfo::new(), employee_signup: EmployeeSignupInfo::new() }
     }
 }
 
@@ -33,7 +35,7 @@ impl App for Event {
             Page::EmployeeLogin => mainlogin::employee_login(self, ctx),
             Page::EmployerLogin => mainlogin::employer_login(self, ctx),
             Page::EmployeeSignup => (),
-            Page::EmployerSignup=> (),
+            Page::EmployerSignup=> signup::employer_signup(self, ctx),
         }
     }
 

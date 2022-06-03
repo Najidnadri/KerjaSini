@@ -1,6 +1,6 @@
 mod handler;
 mod mainlogin;
-
+mod signup;
 
 use egui::{self, Vec2};
 use handler::{Event, Page, Data};
