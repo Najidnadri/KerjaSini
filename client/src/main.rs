@@ -3,14 +3,14 @@ mod mainlogin;
 
 
 use egui::{self, Vec2};
-use handler::{Event, Page};
+use handler::{Event, Page, Data};
 use tokio;
 use eframe::{self, NativeOptions, run_native};
 
 #[tokio::main]
 async fn main() {
     let app = Event {
-        data: "hello world".to_string(),
+        data: Data::new(),
         page: Page::MainLogin,
     };
 
