@@ -7,6 +7,13 @@ use handler::{Event, Page, Data};
 use tokio;
 use eframe::{self, NativeOptions, run_native};
 
+const PUBLIC_KEY: &str = "-----BEGIN PUBLIC KEY-----
+MIGfMA0GCSqGSIb3DQEBAQUAA4GNADCBiQKBgQDCyIwoKqA6zofnddt4BK/plQBe
+xcBWDlGnFIseXjenYOzCfzzaVabPECzFJg89IFT2zm5UnUZ3guQDvJSR5E6xYJfK
+1gbPkgyU/Yk9Y5y1BEL5mfLTYeszzC9EbUa0F29NEYVWXi56xDP/3IHUBaKpDLVu
+6495sjx+2h7USfOFvwIDAQAB
+-----END PUBLIC KEY-----";
+
 #[tokio::main]
 async fn main() {
     let app = Event {
