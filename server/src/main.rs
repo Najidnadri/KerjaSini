@@ -4,7 +4,7 @@ mod database;
 
 use actix_web::{post, Responder, HttpServer, App, HttpResponse, web, get};
 use bb8_tiberius::ConnectionManager;
-use openssl::{ssl::{SslAcceptor, SslFiletype, SslMethod}};
+//use openssl::{ssl::{SslAcceptor, SslFiletype, SslMethod}};
 use tiberius::Config;
 use bb8::{self, Pool};
 use crate::{login_signup::{EmployeeSignupInfo, EmployerSignupInfo, EmployeeLoginCreds, EmployerLoginCreds}, handler::decrypt_body};
@@ -31,12 +31,13 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
 
     //run up the server
     println!("actix web go!");
-
+    /* 
     let mut builder = SslAcceptor::mozilla_intermediate(SslMethod::tls()).unwrap();
     builder
         .set_private_key_file("key.pem", SslFiletype::PEM)
         .unwrap();
     builder.set_certificate_chain_file("cert.pem").unwrap();
+    */
 
     HttpServer::new(move || {
         App::new()
@@ -87,22 +88,22 @@ async fn employee_signup(body: web::Bytes, pool: web::Data<Dbpool>) -> impl Resp
     deserial_data.pass,
     deserial_data.postcode);
     let mut conn = pool.get().await.expect("err in getting conn main::employee_signup");
-    let res = conn.execute(&query, &[]).await.expect("error in executing query main::employee_signup");
+    let _res = conn.execute(&query, &[]).await.expect("error in executing query main::employee_signup");
     println!("employee signed up: {}", query);
     HttpResponse::Ok()
 }
 
 #[post("/employersignup")]
-async fn employer_signup(body: web::Json<EmployerSignupInfo>) -> impl Responder {
+async fn employer_signup(_body: web::Json<EmployerSignupInfo>) -> impl Responder {
     HttpResponse::Ok()
 }
 
 #[post("/employeelogin")]
-async fn employee_login(body: web::Json<EmployeeLoginCreds>) -> impl Responder {
+async fn employee_login(_body: web::Json<EmployeeLoginCreds>) -> impl Responder {
     HttpResponse::Ok()
 }
 
 #[post("/employerlogin")]
-async fn employer_login(body: web::Json<EmployerLoginCreds>) -> impl Responder {
+async fn employer_login(_body: web::Json<EmployerLoginCreds>) -> impl Responder {
     HttpResponse::Ok()
 }
