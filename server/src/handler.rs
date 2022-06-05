@@ -3,28 +3,42 @@ use openssl::rsa::{Rsa, Padding};
 
 const PRIVATE_KEY: &str = "-----BEGIN RSA PRIVATE KEY-----
 Proc-Type: 4,ENCRYPTED
-DEK-Info: AES-128-CBC,423FA8AA1F0D49966C646FB532C8BE9A
+DEK-Info: AES-128-CBC,E0C62636CD26D3F2F7182A28CDA84555
 
-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
+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
 -----END RSA PRIVATE KEY-----";
 
 const PASSPHRASE: &str = "najidnadri";
 
-pub async fn decrypt_body(body: String) -> String {
+pub async fn decrypt_body(body: Vec<u8>) -> String {
     let rsa = Rsa::private_key_from_pem_passphrase(PRIVATE_KEY.as_bytes(), PASSPHRASE.as_bytes()).unwrap();
     let mut buf: Vec<u8> = vec![0; rsa.size() as usize];
-    let _ = rsa.private_decrypt(&body.as_bytes(), &mut buf, Padding::PKCS1).unwrap();
-    String::from_utf8(buf).expect("err in parsing string from vec<u8> in server::handler::decrypt_body")
+    let _ = rsa.private_decrypt(&body, &mut buf, Padding::PKCS1).expect("err in decrypting data handler::decrypt_body");
+    let result = String::from_utf8(buf).expect("err in parsing string from vec<u8> in server::handler::decrypt_body");
+    let result = result.trim_matches(char::from(0)).to_string();
+    result
 }

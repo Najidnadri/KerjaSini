@@ -2495,6 +2495,7 @@ dependencies = [
  "actix-web",
  "bb8",
  "bb8-tiberius",
+ "bytes",
  "dotenv",
  "openssl",
  "serde",

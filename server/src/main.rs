@@ -18,8 +18,9 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
     let mut config = Config::new();
     config.host("localhost");
     config.port(1433);
-    config.authentication(tiberius::AuthMethod::sql_server("SA", "Muhd_najid01"));
+    config.authentication(tiberius::AuthMethod::sql_server("sa", "Muhd_najid01"));
     config.trust_cert();
+    config.database("kerjasini");
 
     //manager
     let mgr = bb8_tiberius::ConnectionManager::build(config).unwrap();
@@ -60,16 +61,34 @@ async fn index() -> impl Responder {
 }
 
 #[post("/employeesignup")]
-async fn employee_signup(body: String, pool: web::Data<Dbpool>) -> impl Responder {
+async fn employee_signup(body: web::Bytes, pool: web::Data<Dbpool>) -> impl Responder {
     println!("{:?}", body);
     //decrypt data
-    let decrypt_data = decrypt_body(body).await;
+    let decrypt_data = decrypt_body(body.to_vec()).await;
+    println!("{}", decrypt_data);
 
     //deserial data
-    let deserial_data: EmployeeSignupInfo = serde_json::from_str(&decrypt_data).expect("cannot deserial employeesignupinfo");
+    let deserial_data: EmployeeSignupInfo = serde_json::from_str(decrypt_data.trim()).expect("cannot deserial employeesignupinfo");
 
     //upload to database
-
+    let query = format!("INSERT INTO Employee (
+        PhoneNumber,
+        Fullname,
+        Username,
+        Email,
+        Age,
+        Pass,
+        Postcode ) VALUES ('{}', '{}', '{}', '{}', '{}', '{}', '{}');", 
+    deserial_data.phonenumber, 
+    deserial_data.fullname, 
+    deserial_data.username,
+    deserial_data.email,    
+    deserial_data.age,  
+    deserial_data.pass,
+    deserial_data.postcode);
+    let mut conn = pool.get().await.expect("err in getting conn main::employee_signup");
+    let res = conn.execute(&query, &[]).await.expect("error in executing query main::employee_signup");
+    println!("employee signed up: {}", query);
     HttpResponse::Ok()
 }
 
