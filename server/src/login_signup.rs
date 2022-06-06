@@ -32,14 +32,14 @@ pub struct EmployerSignupInfo {
 
 #[derive(Debug, Deserialize, Serialize)]
 pub struct EmployerLoginCreds {
-    pub name: String,
+    pub phonenumber: String,
     pub pass: String,
     pub pass_visible: bool
 }
 
 #[derive(Debug, Deserialize, Serialize)]
 pub struct EmployeeLoginCreds {
-    pub name: String,
+    pub phonenumber: String,
     pub pass: String,
     pub pass_visible: bool,
 }

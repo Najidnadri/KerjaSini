@@ -1,2 +1,5 @@
 #ignore target file
 /target
+
+#ignore keys
+.pem
