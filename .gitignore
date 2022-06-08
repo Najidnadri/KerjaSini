@@ -2,4 +2,4 @@
 /target
 
 #ignore keys
-.pem
+*.pem

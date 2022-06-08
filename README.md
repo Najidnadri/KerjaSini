@@ -17,9 +17,9 @@ A place where local talents meets local employers.
 - [x] integrate with mssql
 - [x] set up connection pool for database access 
 - [x] data encryption between client and server
-- [ ] Complete 5 type of database queries
+- [x] Complete 5 type of database queries
 - [ ] sql injection preventation
-- [ ] password hashing and strength check
+- [x] password hashing and strength check
 - [ ] email and phone number taken check
 - [ ] Complete all error handling
 - [ ] test by sending multiple request using browserstack
