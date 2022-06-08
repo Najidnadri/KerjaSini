@@ -5,12 +5,18 @@ mod database;
 use actix_web::{post, Responder, HttpServer, App, HttpResponse, web, get};
 use bb8_tiberius::ConnectionManager;
 use database::query_all_employee;
+use serde::{Deserialize, Serialize};
 //use openssl::{ssl::{SslAcceptor, SslFiletype, SslMethod}};
 use tiberius::{Config, FromSqlOwned};
 use bb8::{self, Pool};
-use crate::{login_signup::{EmployeeSignupInfo, EmployerSignupInfo, EmployeeLoginCreds, EmployerLoginCreds}, handler::decrypt_body, database::{query_employee_signup, query_employer_signup, query_employee_login, query_employer_login}};
+use crate::{login_signup::{EmployeeSignupInfo, EmployerSignupInfo, EmployeeLoginCreds, EmployerLoginCreds}, handler::{decrypt_body, ServerResponse}, database::{query_employee_signup, query_employer_signup, query_employee_login, query_employer_login, query_salt}};
 
 type Dbpool = bb8::Pool<ConnectionManager>;
+
+#[derive(Debug, Deserialize, Serialize)]
+pub struct Buffer {
+    pub bytes: Vec<Vec<u8>>
+}
 
 #[actix_web::main]
 async fn main() -> Result<(), Box<dyn std::error::Error>> {
@@ -46,6 +52,10 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
         .service(employee_signup)
         .service(index)
         .service(employee_login)
+        .service(get_salt)
+        .service(employer_signup)
+        .service(employer_login)
+        .service(all_employee)
     })
     .bind(("127.0.0.1", 8000))?
     //.bind_openssl("127.0.0.1:8000", builder)? //bind for ssl
@@ -64,9 +74,9 @@ async fn index() -> impl Responder {
 }
 
 #[post("/employeesignup")]
-async fn employee_signup(body: web::Bytes, pool: web::Data<Dbpool>) -> impl Responder {
+async fn employee_signup(body: web::Json<Buffer>, pool: web::Data<Dbpool>) -> impl Responder {
     //decrypt data
-    let decrypt_data = decrypt_body(body.to_vec()).await;
+    let decrypt_data = decrypt_body(body.into_inner()).await;
     println!("{}", decrypt_data);
 
     //deserial data
@@ -81,9 +91,9 @@ async fn employee_signup(body: web::Bytes, pool: web::Data<Dbpool>) -> impl Resp
 }
 
 #[post("/employersignup")]
-async fn employer_signup(body: web::Bytes, pool: web::Data<Dbpool>) -> impl Responder {
+async fn employer_signup(body: web::Json<Buffer>, pool: web::Data<Dbpool>) -> impl Responder {
     //decrypt data
-    let decrypt_data = decrypt_body(body.to_vec()).await;
+    let decrypt_data = decrypt_body(body.into_inner()).await;
     println!("{}", decrypt_data);
 
     //deserial data
@@ -98,9 +108,9 @@ async fn employer_signup(body: web::Bytes, pool: web::Data<Dbpool>) -> impl Resp
 }
 
 #[post("/employeelogin")]
-async fn employee_login(body: web::Bytes, pool: web::Data<Dbpool>) -> impl Responder {
+async fn employee_login(body: web::Json<Buffer>, pool: web::Data<Dbpool>) -> impl Responder {
     //decrypt data
-    let decrypt_data = decrypt_body(body.to_vec()).await;
+    let decrypt_data = decrypt_body(body.into_inner()).await;
     println!("{}", decrypt_data);
 
     //deserial data
@@ -128,9 +138,9 @@ async fn employee_login(body: web::Bytes, pool: web::Data<Dbpool>) -> impl Respo
 }
 
 #[post("/employerlogin")]   
-async fn employer_login(body: web::Bytes, pool: web::Data<Dbpool>) -> impl Responder {
+async fn employer_login(body: web::Json<Buffer>, pool: web::Data<Dbpool>) -> impl Responder {
     //decrypt data
-    let decrypt_data = decrypt_body(body.to_vec()).await;
+    let decrypt_data = decrypt_body(body.into_inner()).await;
     println!("{}", decrypt_data);
 
     //deserial data
@@ -166,11 +176,44 @@ async fn all_employee(pool: web::Data<Dbpool>) -> impl Responder {
     let response = conn.query(&query, &[])
     .await
     .expect("err in executing query main::all_employee")
-    .into_row()
+    .into_results()
     .await
     .expect("err into_row main::all_employee");
 
     //do something with data
-    
+    for val in response.into_iter() {
+        for value in val {
+            for values in value.into_iter() {
+                let string = String::from_sql_owned(values).unwrap().unwrap();
+                println!("{:?}", string);
+            }
+        }
+    }
+
     HttpResponse::Ok()
+}
+
+#[post("/salt")]
+async fn get_salt(body: web::Json<Buffer>, pool: web::Data<Dbpool>) -> impl Responder {
+    //decrypt data
+    let decrypt_data = decrypt_body(body.into_inner()).await;
+    
+    //create query
+    let query = query_salt();
+    let mut conn = pool.get().await.expect("err in getting conn main::get_Salt");
+
+    //response from database
+    let response = conn.query(&query, &[&decrypt_data])
+    .await
+    .expect("err in executing query mian::getsalt")
+    .into_row()
+    .await
+    .expect("err into_row main::getsalt")
+    .unwrap();
+    let salt: &str = response.get("Salt").unwrap();
+
+    //create server response
+    let server_response = ServerResponse::SaltReceived(salt.to_string());
+
+    web::Json(server_response)
 }

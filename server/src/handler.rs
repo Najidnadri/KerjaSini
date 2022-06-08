@@ -1,4 +1,7 @@
 use openssl::rsa::{Rsa, Padding};
+use serde::{Deserialize, Serialize};
+
+use crate::Buffer;
 
 
 const PRIVATE_KEY: &str = "-----BEGIN RSA PRIVATE KEY-----
@@ -34,11 +37,24 @@ K8+0gtCQOwixej807cqWwZASLHGnSk7mb+T80ZfWmPMqt4Bec35LThTo3y4PfptQ
 
 const PASSPHRASE: &str = "najidnadri";
 
-pub async fn decrypt_body(body: Vec<u8>) -> String {
-    let rsa = Rsa::private_key_from_pem_passphrase(PRIVATE_KEY.as_bytes(), PASSPHRASE.as_bytes()).unwrap();
-    let mut buf: Vec<u8> = vec![0; rsa.size() as usize];
-    let _ = rsa.private_decrypt(&body, &mut buf, Padding::PKCS1).expect("err in decrypting data handler::decrypt_body");
-    let result = String::from_utf8(buf).expect("err in parsing string from vec<u8> in server::handler::decrypt_body");
-    let result = result.trim_matches(char::from(0)).to_string();
-    result
+#[derive(Debug, Deserialize, Serialize)]
+pub enum ServerResponse {
+    SaltReceived(String),
+    ServerFailed,
+    Ok,
+    Err,
+}
+
+pub async fn decrypt_body(body: Buffer) -> String {
+    let mut data = String::new();
+    for bytes in body.bytes {
+        let rsa = Rsa::private_key_from_pem_passphrase(PRIVATE_KEY.as_bytes(), PASSPHRASE.as_bytes()).unwrap();
+        let mut buf: Vec<u8> = vec![0; rsa.size() as usize];
+        let _ = rsa.private_decrypt(&bytes, &mut buf, Padding::PKCS1).expect("err in decrypting data handler::decrypt_body");
+        let result = String::from_utf8(buf).expect("err in parsing string from vec<u8> in server::handler::decrypt_body"); 
+        let result = result.trim_matches(char::from(0)).to_string();
+        data.push_str(&result);
+    }
+    let data = data.trim_matches(char::from(0)).to_string();
+    data
 }

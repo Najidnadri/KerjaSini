@@ -14,8 +14,7 @@ xcBWDlGnFIseXjenYOzCfzzaVabPECzFJg89IFT2zm5UnUZ3guQDvJSR5E6xYJfK
 6495sjx+2h7USfOFvwIDAQAB
 -----END PUBLIC KEY-----";
 
-#[tokio::main]
-async fn main() {
+fn main() {
     let app = Event {
         data: Data::new(),
         page: Page::MainLogin,

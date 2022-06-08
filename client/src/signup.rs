@@ -1,38 +1,46 @@
 use egui::Color32;
+use serde::{Deserialize, Serialize};
 
-use crate::handler::{Event, Page};
+use crate::handler::{Event, Page, ClientRequest, send_request, ServerResponse};
 
+#[derive(Clone, Debug, Deserialize, Serialize)]
 pub struct EmployerSignupInfo {
-    pub companyname: String,
     pub phonenumber: String,
+    pub fullname: String,
+    pub companyname: String,
+    pub email: String,
     pub website: String,
     pub regnum: String,
     pub pass: String,
+    pub salt: String,
     pub retype_pass: String,
     pub pass_visible: bool,
-    pub email: String,
+    pub postcode: String,
 }
 
 impl EmployerSignupInfo {
     pub fn new() -> Self {
-        EmployerSignupInfo { companyname: String::new(), phonenumber: String::new(), website: String::new(), regnum: String::new(), pass: String::new(), email: String::new(), retype_pass: String::new(), pass_visible: true }
+        EmployerSignupInfo { companyname: String::new(), fullname: String::new(), phonenumber: String::new(), website: String::new(), regnum: String::new(), pass: String::new(), salt: String::new(), email: String::new(), retype_pass: String::new(), pass_visible: true, postcode: String::new() }
     }
 }
 
+#[derive(Clone, Debug, Deserialize, Serialize)]
 pub struct EmployeeSignupInfo {
+    pub phonenumber: String,
     pub fullname: String,
     pub username: String,
     pub email: String,
     pub age: String,
-    pub phonenumber: String,
     pub pass: String,
+    pub salt: String,
     pub retype_pass: String,
     pub pass_visible: bool,
+    pub postcode: String,
 }
 
 impl EmployeeSignupInfo {
     pub fn new() -> Self {
-        EmployeeSignupInfo { fullname: String::new(), username: String::new(), email: String::new(), age: String::new(), phonenumber: String::new(), pass: String::new(), retype_pass: String::new(), pass_visible: true }
+        EmployeeSignupInfo { fullname: String::new(), username: String::new(), email: String::new(), age: String::new(), phonenumber: String::new(), pass: String::new(), salt: String::new(), retype_pass: String::new(), pass_visible: true, postcode: String::new() }
     }
 }
 
@@ -55,6 +63,11 @@ pub fn employer_signup(event: &mut Event, ctx: &egui::CtxRef) {
                     ui.colored_label(Color32::BLACK, "Phone Number");
                     ui.add_space(5.);
                     ui.add_sized([280., 20.], egui::TextEdit::singleline(&mut event.data.employer_signup.phonenumber));
+                    //fullname
+                    ui.add_space(10.);
+                    ui.colored_label(Color32::BLACK, "Full Name");
+                    ui.add_space(5.);
+                    ui.add_sized([280., 20.], egui::TextEdit::singleline(&mut event.data.employer_signup.fullname));
                     //website
                     ui.add_space(10.);
                     ui.colored_label(Color32::BLACK, "Website");
@@ -70,6 +83,11 @@ pub fn employer_signup(event: &mut Event, ctx: &egui::CtxRef) {
                     ui.colored_label(Color32::BLACK, "Regnum");
                     ui.add_space(5.);
                     ui.add_sized([280., 20.], egui::TextEdit::singleline(&mut event.data.employer_signup.regnum));
+                    //postcode
+                    ui.add_space(10.);
+                    ui.colored_label(Color32::BLACK, "Postcode");
+                    ui.add_space(5.);
+                    ui.add_sized([280., 20.], egui::TextEdit::singleline(&mut event.data.employer_signup.postcode));
                     //pass
                     ui.add_space(10.);
                     ui.colored_label(Color32::BLACK, "New Password");
@@ -131,11 +149,16 @@ pub fn employee_signup(event: &mut Event, ctx: &egui::CtxRef) {
                     ui.colored_label(Color32::BLACK, "Email");
                     ui.add_space(5.);
                     ui.add_sized([280., 20.], egui::TextEdit::singleline(&mut event.data.employee_signup.email));
-                    //regnum
+                    //age
                     ui.add_space(10.);
                     ui.colored_label(Color32::BLACK, "Age");
                     ui.add_space(5.);
                     ui.add_sized([280., 20.], egui::TextEdit::singleline(&mut event.data.employee_signup.age));
+                    //postcode
+                    ui.add_space(10.);
+                    ui.colored_label(Color32::BLACK, "Postcode");
+                    ui.add_space(5.);
+                    ui.add_sized([280., 20.], egui::TextEdit::singleline(&mut event.data.employer_signup.postcode));
                     //pass
                     ui.add_space(10.);
                     ui.colored_label(Color32::BLACK, "New Password");
@@ -154,7 +177,18 @@ pub fn employee_signup(event: &mut Event, ctx: &egui::CtxRef) {
                     let back_button = ui.add_sized([300., 30.], egui::Button::new("Back").fill(egui::Color32::GRAY).text_color(egui::Color32::WHITE));
                     ui.add_space(10.);
                     if signup_button.clicked() {
-                        event.page = Page::EmployerSignup;
+                        event.data.employee_signup.retype_pass.clear();
+                        //make client request
+                        let client_request = ClientRequest::EmployeeSignup(event.data.employee_signup.clone());
+                        let response = send_request(client_request);
+                        match response {
+                            ServerResponse::Ok => {
+                                event.page = Page::EmployeeLogin;
+                            }
+                            _ => {
+                                event.data.employee_signup.phonenumber = "something wrong".to_string();
+                            }
+                        }
                     }
                     if back_button.clicked() {
                         event.data.employer_signup.pass.clear();
@@ -167,6 +201,3 @@ pub fn employee_signup(event: &mut Event, ctx: &egui::CtxRef) {
     });
 }
 
-fn post_signup() {
-    
-}
