@@ -38,7 +38,7 @@ pub fn query_employer_signup(data: EmployerSignupInfo) -> String {
         Fullname,
         CompanyName,
         Email,
-        Website.
+        Website,
         Regnum,
         Pass,
         Salt,
@@ -61,7 +61,7 @@ pub fn query_employee_login() -> String {
 
 
 pub fn query_employer_login() -> String {
-    "SELECT * FROM Employee
+    "SELECT * FROM Employer
     WHERE PhoneNumber = @P1;".to_string()
 }
 
@@ -69,8 +69,13 @@ pub fn query_all_employee() -> String {
     "SELECT * FROM Employee".to_string()
 }
 
-pub fn query_salt() -> String {
+pub fn query_employee_salt() -> String {
     "SELECT Salt FROM Employee
+    WHERE PhoneNumber = @p1".to_string()
+}
+
+pub fn query_employer_salt() -> String {
+    "SELECT Salt FROM Employer
     WHERE PhoneNumber = @p1".to_string()
 }
 

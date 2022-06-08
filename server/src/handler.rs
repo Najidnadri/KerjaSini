@@ -40,9 +40,18 @@ const PASSPHRASE: &str = "najidnadri";
 #[derive(Debug, Deserialize, Serialize)]
 pub enum ServerResponse {
     SaltReceived(String),
+    SignupErr(SignupErr),
+    LoginErr,
     ServerFailed,
     Ok,
     Err,
+}
+
+#[derive(Debug, Deserialize, Serialize)]
+pub struct SignupErr {
+    pub email_taken: bool,
+    pub phone_number_taken: bool,
+    pub company_name_taken: bool,
 }
 
 pub async fn decrypt_body(body: Buffer) -> String {

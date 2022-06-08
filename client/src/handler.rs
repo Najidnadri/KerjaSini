@@ -1,15 +1,13 @@
 extern crate argon2;
 
-use std::{sync::mpsc, time::Duration};
 use argon2::Config;
 use password_hash::{self, SaltString};
 use rand_core::OsRng;
-use bytes::Bytes;
 use eframe::epi::App;
 use openssl::rsa::{Rsa, Padding};
-use reqwest::{self, blocking::Response};
+use reqwest;
 use serde::{Deserialize, Serialize};
-use crate::{mainlogin::{self, EmployeeLoginCreds, EmployerLoginCreds}, signup::{self, EmployerSignupInfo, EmployeeSignupInfo}};
+use crate::{mainlogin::{self, EmployeeLoginCreds, EmployerLoginCreds}, signup::{self, EmployerSignupInfo, EmployeeSignupInfo, SignupErr}};
 
 const BASE_URL: &str = "http://127.0.0.1:8000/";
 
@@ -38,6 +36,8 @@ pub enum ClientRequest {
 #[derive(Debug, Deserialize, Serialize)]
 pub enum ServerResponse {
     SaltReceived(String),
+    SignupErr(SignupErr),
+    LoginErr,
     ServerFailed,
     Ok,
     Err,
@@ -85,7 +85,7 @@ impl App for Event {
     }
 }
 
-pub fn send_salt_request(phonenumber: String) -> ServerResponse {
+pub fn send_salt_request_employee(phonenumber: String) -> ServerResponse {
     //encrypt body
     let mut buffer = Buffer {bytes: vec![]};
     let rsa = Rsa::public_key_from_pem(PUBLIC_KEY.as_bytes()).unwrap();
@@ -94,7 +94,21 @@ pub fn send_salt_request(phonenumber: String) -> ServerResponse {
     buffer.bytes.push(buf);
 
     let client = reqwest::blocking::Client::new();
-    let url = format!("{}salt", BASE_URL);
+    let url = format!("{}employeesalt", BASE_URL);
+    let res: ServerResponse = client.post(url).json(&buffer).send().unwrap().json().unwrap();
+    res
+}
+
+pub fn send_salt_request_employer(phonenumber: String) -> ServerResponse {
+    //encrypt body
+    let mut buffer = Buffer {bytes: vec![]};
+    let rsa = Rsa::public_key_from_pem(PUBLIC_KEY.as_bytes()).unwrap();
+    let mut buf: Vec<u8> = vec![0; rsa.size() as usize];
+    let _ = rsa.public_encrypt(phonenumber.as_bytes(), &mut buf, Padding::PKCS1).unwrap();
+    buffer.bytes.push(buf);
+
+    let client = reqwest::blocking::Client::new();
+    let url = format!("{}employersalt", BASE_URL);
     let res: ServerResponse = client.post(url).json(&buffer).send().unwrap().json().unwrap();
     res
 }
@@ -104,15 +118,16 @@ pub fn send_request(request: ClientRequest) -> ServerResponse {
     match request {
         ClientRequest::EmployeeLogin(mut creds) => {
             //request salt
-            let mut salt = String::new();
-            match send_salt_request(creds.phonenumber.clone()) {
+            let mut _salt = String::new();
+            let salt_response = send_salt_request_employee(creds.phonenumber.clone());
+            match salt_response {
                 ServerResponse::SaltReceived(s) => {
-                    salt = s;
-                }
-                _ => return ServerResponse::Err
+                    _salt = s;
+                },
+                _ => return salt_response
             }
             //pass hashing
-            let hash = hash_pass(&creds.pass, &salt);
+            let hash = hash_pass(&creds.pass, &_salt);
             creds.pass = hash;
 
             //serialize
@@ -123,16 +138,32 @@ pub fn send_request(request: ClientRequest) -> ServerResponse {
 
             //post request
             let response = post_request(bytes, "employeelogin");
-            match response {
-                ServerResponse::Ok => {
-                    return ServerResponse::Ok;
-                },
-                _ => {
-                    return ServerResponse::Err;
-                }
-            }
+            return response
         },
-        ClientRequest::EmployerLogin(creds) => todo!(),
+        ClientRequest::EmployerLogin(mut creds) => {
+            //request salt
+            let mut _salt = String::new();
+            let salt_response = send_salt_request_employer(creds.phonenumber.clone());
+            match salt_response {
+                ServerResponse::SaltReceived(s) => {
+                    _salt = s;
+                },
+                _ => return salt_response
+            }
+            //pass hashing
+            let hash = hash_pass(&creds.pass, &_salt);
+            creds.pass = hash;
+
+            //serialize
+            let serialized_data = serde_json::to_string(&creds).unwrap();
+
+            //encrypt
+            let bytes = encrypt_data(serialized_data);
+
+            //post request
+            let response = post_request(bytes, "employerlogin");
+            return response
+        },
         ClientRequest::EmployeeSignup(mut info) => {
             //generate salt
             let salt = SaltString::generate(&mut OsRng).to_string();
@@ -150,18 +181,29 @@ pub fn send_request(request: ClientRequest) -> ServerResponse {
 
             //post request
             let response = post_request(bytes, "employeesignup");
-            match response {
-                ServerResponse::Ok => {
-                    return ServerResponse::Ok;
-                },
-                _ => {
-                    return ServerResponse::Err;
-                }
-            }
+            return response
         },
-        ClientRequest::EmployerSignup(info) => todo!(),
+        ClientRequest::EmployerSignup(mut info) => {
+             //generate salt
+            let salt = SaltString::generate(&mut OsRng).to_string();
+
+            //pass hashing
+            let hash = hash_pass(&info.pass, &salt);
+            info.pass = hash;
+            info.salt = salt;
+
+            //serialize
+            let serialized_data = serde_json::to_string(&info).unwrap();
+
+            //encrypt
+            let bytes = encrypt_data(serialized_data);
+
+            //post request
+            let response = post_request(bytes, "employersignup");
+            return response
+        },
     }
-    ServerResponse::Err
+    //ServerResponse::Err
 }
 
 fn hash_pass(pass: &str, salt: &str) -> String {
@@ -209,5 +251,60 @@ fn post_request(body: Buffer, route: &str) -> ServerResponse {
         Err(_) => {
             return ServerResponse::ServerFailed
         }
+    }
+}
+
+pub fn filter_response(event: &mut Event, response: ServerResponse) {
+    match response {
+        ServerResponse::SignupErr(err) => {
+            match event.page {
+                Page::EmployeeSignup => {
+                    event.data.employee_signup.email_taken = err.email_taken;
+                    event.data.employee_signup.phonenumber_taken = err.phone_number_taken;
+                },
+                Page::EmployerSignup => {
+                    event.data.employer_signup.email_taken = err.email_taken;
+                    event.data.employer_signup.phonenumber_taken = err.phone_number_taken;
+                    event.data.employer_signup.companyname_taken = err.company_name_taken;
+                },
+                _ => (),
+            }
+        },
+        ServerResponse::LoginErr => {
+            match event.page {
+                Page::EmployeeLogin => {
+                    event.data.employee_login.err = true;
+                },
+                Page::EmployerLogin => {
+                    event.data.employer_login.err = true;
+                }
+                _ => (),
+            }
+        },
+        ServerResponse::ServerFailed => todo!(),
+        ServerResponse::Ok => {
+            match event.page {
+                Page::EmployeeLogin => {
+                    event.data.employee_login.clear();
+                    event.page = Page::MainLogin;
+                },
+                Page::EmployerLogin => {
+                    event.data.employer_login.clear();
+                    event.page = Page::MainLogin;
+                },
+                Page::EmployeeSignup => {
+                    event.data.employee_signup.clear();
+                    event.page = Page::EmployeeLogin;
+                },
+                Page::EmployerSignup => {
+                    event.data.employer_signup.clear();
+                    event.page = Page::EmployerLogin;
+                },
+                _ => (),
+            }
+        },
+        ServerResponse::Err => todo!(),
+        //saltreceived
+        _ => todo!(), 
     }
 }

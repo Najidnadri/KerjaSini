@@ -4,7 +4,6 @@ mod signup;
 
 use egui::{self, Vec2};
 use handler::{Event, Page, Data};
-use tokio;
 use eframe::{self, NativeOptions, run_native};
 
 const PUBLIC_KEY: &str = "-----BEGIN PUBLIC KEY-----
