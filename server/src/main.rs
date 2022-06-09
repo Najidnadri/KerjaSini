@@ -3,14 +3,14 @@ mod handler;
 mod database;
 mod error;
 
-use actix_web::{post, Responder, HttpServer, App, HttpResponse, web, get};
+use actix_web::{post, Responder, HttpServer, App, web, get};
 use bb8_tiberius::ConnectionManager;
-use database::query_all_employee;
+use error::Error;
 use serde::{Deserialize, Serialize};
 //use openssl::{ssl::{SslAcceptor, SslFiletype, SslMethod}};
-use tiberius::{Config, FromSqlOwned};
+use tiberius::Config;
 use bb8::{self, Pool};
-use crate::{login_signup::{EmployeeSignupInfo, EmployerSignupInfo, EmployeeLoginCreds, EmployerLoginCreds}, handler::{decrypt_body, ServerResponse, check_creds_exist_employer, check_creds_exist_employee}, database::{query_employee_signup, query_employer_signup, query_employee_login, query_employer_login, query_employer_salt, query_employee_salt}};
+use crate::{login_signup::{EmployeeSignupInfo, EmployerSignupInfo, EmployeeLoginCreds, EmployerLoginCreds}, handler::{decrypt_body, ServerResponse, check_creds_exist_employer, check_creds_exist_employee}, database::{query_employee_signup, query_employer_signup, query_employee_login, query_employer_login, query_employer_salt, query_employee_salt, query_and_get_first_row}};
 
 type Dbpool = bb8::Pool<ConnectionManager>;
 
@@ -57,7 +57,6 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
         .service(get_employer_salt)
         .service(employer_signup)
         .service(employer_login)
-        .service(all_employee)
     })
     .bind(("127.0.0.1", 8000))?
     //.bind_openssl("127.0.0.1:8000", builder)? //bind for ssl
@@ -77,6 +76,14 @@ async fn index() -> impl Responder {
 
 #[post("/employeesignup")]
 async fn employee_signup(body: web::Json<Buffer>, pool: web::Data<Dbpool>) -> impl Responder {
+    //get connection with database
+    let conn = pool.get().await;
+    if let Err(e) = &conn {
+        println!("error getting conn from pool main::employee_signup: {:?}", e);
+        return web::Json(ServerResponse::ServerFailed)
+    }
+    let mut conn = conn.unwrap();
+
     //decrypt data
     let decrypt_data = decrypt_body(body.into_inner()).await;
     println!("{}", decrypt_data);
@@ -90,12 +97,6 @@ async fn employee_signup(body: web::Json<Buffer>, pool: web::Data<Dbpool>) -> im
     let deserial_data = deserial_data.unwrap();
 
     //check email, phone number, company name
-    let conn = pool.get().await;
-    if let Err(e) = &conn {
-        println!("error getting conn from pool main::employee_signup: {:?}", e);
-        return web::Json(ServerResponse::ServerFailed)
-    }
-    let mut conn = conn.unwrap();
     let creds_check_res = check_creds_exist_employee(&mut conn, &deserial_data.phonenumber, &deserial_data.email).await;
     if let Err(_e) = creds_check_res {
         return web::Json(ServerResponse::ServerFailed)
@@ -108,14 +109,6 @@ async fn employee_signup(body: web::Json<Buffer>, pool: web::Data<Dbpool>) -> im
 
     //upload to database
     let query = query_employee_signup(deserial_data);
-    println!("{}", query);
-    let conn = pool.get().await;
-    if let Err(e) = &conn {
-        println!("error getting conn from pool main::employee_signup: {:?}", e);
-        return web::Json(ServerResponse::ServerFailed)
-    }
-
-    let mut conn = conn.unwrap();
     let res = conn.execute(&query, &[]).await;
     if let Err(e) = &res {
         println!("error executing query main::employee_signup {:?}", e);
@@ -128,6 +121,14 @@ async fn employee_signup(body: web::Json<Buffer>, pool: web::Data<Dbpool>) -> im
 
 #[post("/employersignup")]
 async fn employer_signup(body: web::Json<Buffer>, pool: web::Data<Dbpool>) -> impl Responder {
+    //get connection with database
+    let conn = pool.get().await;
+    if let Err(e) = &conn {
+        println!("error getting conn from pool main::employee_signup: {:?}", e);
+        return web::Json(ServerResponse::ServerFailed)
+    }
+    let mut conn = conn.unwrap();
+
     //decrypt data
     let decrypt_data = decrypt_body(body.into_inner()).await;
     println!("{}", decrypt_data);
@@ -141,12 +142,6 @@ async fn employer_signup(body: web::Json<Buffer>, pool: web::Data<Dbpool>) -> im
     let deserial_data = deserial_data.unwrap();
 
     //check email, phone number, company name
-    let conn = pool.get().await;
-    if let Err(e) = &conn {
-        println!("error getting conn from pool main::employer_signup: {:?}", e);
-        return web::Json(ServerResponse::ServerFailed)
-    }
-    let mut conn = conn.unwrap();
     let creds_check_res = check_creds_exist_employer(&mut conn, &deserial_data.phonenumber, &deserial_data.email , &deserial_data.companyname).await;
     if let Err(_e) = creds_check_res {
         return web::Json(ServerResponse::ServerFailed)
@@ -159,14 +154,6 @@ async fn employer_signup(body: web::Json<Buffer>, pool: web::Data<Dbpool>) -> im
 
     //upload to database
     let query = query_employer_signup(deserial_data);
-    println!("{}", query);
-    let conn = pool.get().await;
-    if let Err(e) = &conn {
-        println!("error getting conn from pool main::employer_signup: {:?}", e);
-        return web::Json(ServerResponse::ServerFailed)
-    }
-
-    let mut conn = conn.unwrap();
     let res = conn.execute(&query, &[]).await;
     if let Err(e) = &res {
         println!("error executing query main::employer_signup {:?}", e);
@@ -179,6 +166,14 @@ async fn employer_signup(body: web::Json<Buffer>, pool: web::Data<Dbpool>) -> im
 
 #[post("/employeelogin")]
 async fn employee_login(body: web::Json<Buffer>, pool: web::Data<Dbpool>) -> impl Responder {
+    //get connection with database
+    let conn = pool.get().await;
+    if let Err(e) = &conn {
+        println!("error getting conn from pool main::employee_signup: {:?}", e);
+        return web::Json(ServerResponse::ServerFailed)
+    }
+    let mut conn = conn.unwrap();
+
     //decrypt data
     let decrypt_data = decrypt_body(body.into_inner()).await;
     println!("{}", decrypt_data);
@@ -192,33 +187,16 @@ async fn employee_login(body: web::Json<Buffer>, pool: web::Data<Dbpool>) -> imp
 
     //create query to database
     let query = query_employee_login();
-    let conn = pool.get().await;
-    if let Err(e) = &conn {
-        println!("error getting conn from pool main::employee_login: {:?}", e);
-        return web::Json(ServerResponse::ServerFailed)
-    }
 
-    //response from database
-    let mut conn = conn.unwrap();
-    let response = conn.query(&query, &[&deserial_data.as_ref().unwrap().phonenumber]).await;
-    if let Err(e) = &response {
-        println!("error in executing query main::employee_login: {:?}", e);
-        return web::Json(ServerResponse::ServerFailed)
+    //execute query and get first row
+    let row = query_and_get_first_row(&mut conn, query, &[&deserial_data.as_ref().unwrap().phonenumber]).await;
+    if let Err(ref e) = row {
+        match e {
+            Error::ServerError => return web::Json(ServerResponse::ServerFailed),
+            Error::ZeroRow => return web::Json(ServerResponse::LoginErr),
+        }
     }
-
-    //get first row
-    let row_result = response.unwrap()
-    .into_row()
-    .await;
-    if let Err(e) = &row_result {
-        println!("error into_row() main::employee_login: {:?}", e);
-        return web::Json(ServerResponse::ServerFailed)
-    }
-    if let None = &row_result.as_ref().unwrap() {
-        println!("Wrong phone number or pass: query = {:?}", &query);
-        return web::Json(ServerResponse::LoginErr)
-    }
-    let row = row_result.unwrap().unwrap();
+    let row = row.unwrap();
 
     //get value from column "Pass"
     let pass: Option<&str> = row.get("Pass");
@@ -237,6 +215,14 @@ async fn employee_login(body: web::Json<Buffer>, pool: web::Data<Dbpool>) -> imp
 
 #[post("/employerlogin")]   
 async fn employer_login(body: web::Json<Buffer>, pool: web::Data<Dbpool>) -> impl Responder {
+    //get connection with database
+    let conn = pool.get().await;
+    if let Err(e) = &conn {
+        println!("error getting conn from pool main::employee_signup: {:?}", e);
+        return web::Json(ServerResponse::ServerFailed)
+    }
+    let mut conn = conn.unwrap();
+
     //decrypt data
     let decrypt_data = decrypt_body(body.into_inner()).await;
     println!("{}", decrypt_data);
@@ -250,33 +236,16 @@ async fn employer_login(body: web::Json<Buffer>, pool: web::Data<Dbpool>) -> imp
 
     //create query to database
     let query = query_employer_login();
-    let conn = pool.get().await;
-    if let Err(e) = &conn {
-        println!("error getting conn from pool main::employer_login: {:?}", e);
-        return web::Json(ServerResponse::ServerFailed)
-    }
 
-    //response from database
-    let mut conn = conn.unwrap();
-    let response = conn.query(&query, &[&deserial_data.as_ref().unwrap().phonenumber]).await;
-    if let Err(e) = &response {
-        println!("error in executing query main::employer_login: {:?}", e);
-        return web::Json(ServerResponse::ServerFailed)
+    //execute query and get first row
+    let row = query_and_get_first_row(&mut conn, query, &[&deserial_data.as_ref().unwrap().phonenumber]).await;
+    if let Err(ref e) = row {
+        match e {
+            Error::ServerError => return web::Json(ServerResponse::ServerFailed),
+            Error::ZeroRow => return web::Json(ServerResponse::LoginErr),
+        }
     }
-
-    //get first row
-    let row_result = response.unwrap()
-    .into_row()
-    .await;
-    if let Err(e) = &row_result {
-        println!("error into_row() main::employer_login: {:?}", e);
-        return web::Json(ServerResponse::ServerFailed)
-    }
-    if let None = &row_result.as_ref().unwrap() {
-        println!("Wrong phone number or pass: query = {:?}", &query);
-        return web::Json(ServerResponse::LoginErr)
-    }
-    let row = row_result.unwrap().unwrap();
+    let row = row.unwrap();
 
     //get value from column "Pass"
     let pass: Option<&str> = row.get("Pass");
@@ -293,67 +262,31 @@ async fn employer_login(body: web::Json<Buffer>, pool: web::Data<Dbpool>) -> imp
     }
 }
 
-#[get("/allemployee")]
-async fn all_employee(pool: web::Data<Dbpool>) -> impl Responder {
-    //create query to database
-    let query = query_all_employee();
-    let mut conn = pool.get().await.expect("err in getting conn main::all_employee");
-
-    //response from database
-    let response = conn.query(&query, &[])
-    .await
-    .expect("err in executing query main::all_employee")
-    .into_results()
-    .await
-    .expect("err into_row main::all_employee");
-
-    //do something with data
-    for val in response.into_iter() {
-        for value in val {
-            for values in value.into_iter() {
-                let string = String::from_sql_owned(values).unwrap().unwrap();
-                println!("{:?}", string);
-            }
-        }
-    }
-
-    HttpResponse::Ok()
-}
-
 #[post("/employeesalt")]
 async fn get_employee_salt(body: web::Json<Buffer>, pool: web::Data<Dbpool>) -> impl Responder {
+    //get connection with database
+    let conn = pool.get().await;
+    if let Err(e) = &conn {
+        println!("error getting conn from pool main::employee_signup: {:?}", e);
+        return web::Json(ServerResponse::ServerFailed)
+    }
+    let mut conn = conn.unwrap();
+
     //decrypt data
     let decrypt_data = decrypt_body(body.into_inner()).await;
     
     //create query
     let query = query_employee_salt();
-    let conn = pool.get().await;
-    if let Err(e) = &conn {
-        println!("error getting conn from pool main::employee_salt: {:?}", e);
-        return web::Json(ServerResponse::ServerFailed)
-    }
 
-    //response from database
-    let mut conn = conn.unwrap();
-    let response = conn.query(&query, &[&decrypt_data]).await;
-    if let Err(e) = &response {
-        println!("error in executing query main::employee_salt: {:?}", e);
-        return web::Json(ServerResponse::ServerFailed)
+    //execute query and get first row
+    let row = query_and_get_first_row(&mut conn, query, &[&decrypt_data]).await;
+    if let Err(ref e) = row {
+        match e {
+            Error::ServerError => return web::Json(ServerResponse::ServerFailed),
+            Error::ZeroRow => return web::Json(ServerResponse::LoginErr),
+        }
     }
-
-    //get first row
-    let row_result = response.unwrap()
-    .into_row()
-    .await;
-    if let Err(e) = &row_result {
-        println!("error into_row() main::employee_salt: {:?}", e);
-        return web::Json(ServerResponse::ServerFailed)
-    }
-    if let None = &row_result.as_ref().unwrap() {
-        println!("Wrong phone number or pass: query = {:?}", &query);
-        return web::Json(ServerResponse::LoginErr)
-    }
-    let row = row_result.unwrap().unwrap();
+    let row = row.unwrap();
 
     //get value from column "Salt"
     let salt: Option<&str> = row.get("Salt");
@@ -370,38 +303,29 @@ async fn get_employee_salt(body: web::Json<Buffer>, pool: web::Data<Dbpool>) -> 
 
 #[post("/employersalt")]
 async fn get_employer_salt(body: web::Json<Buffer>, pool: web::Data<Dbpool>) -> impl Responder {
-    //decrypt data
-    let decrypt_data = decrypt_body(body.into_inner()).await;
-    
-    //create query
-    let query = query_employer_salt();
+    //get connection to database
     let conn = pool.get().await;
     if let Err(e) = &conn {
         println!("error getting conn from pool main::employer_salt: {:?}", e);
         return web::Json(ServerResponse::ServerFailed)
     }
-
-    //response from database
     let mut conn = conn.unwrap();
-    let response = conn.query(&query, &[&decrypt_data]).await;
-    if let Err(e) = &response {
-        println!("error in executing query main::employer_salt: {:?}", e);
-        return web::Json(ServerResponse::ServerFailed)
-    }
 
-    //get first row
-    let row_result = response.unwrap()
-    .into_row()
-    .await;
-    if let Err(e) = &row_result {
-        println!("error into_row() main::employer_salt: {:?}", e);
-        return web::Json(ServerResponse::ServerFailed)
+    //decrypt data
+    let decrypt_data = decrypt_body(body.into_inner()).await;
+    
+    //create query
+    let query = query_employer_salt();
+
+    //execute query and get first row
+    let row = query_and_get_first_row(&mut conn, query, &[&decrypt_data]).await;
+    if let Err(ref e) = row {
+        match e {
+            Error::ServerError => return web::Json(ServerResponse::ServerFailed),
+            Error::ZeroRow => return web::Json(ServerResponse::LoginErr),
+        }
     }
-    if let None = &row_result.as_ref().unwrap() {
-        println!("Wrong phone number or pass: query = {:?}", &query);
-        return web::Json(ServerResponse::LoginErr)
-    }
-    let row = row_result.unwrap().unwrap();
+    let row = row.unwrap();
 
     //get value from column "Salt"
     let salt: Option<&str> = row.get("Salt");
