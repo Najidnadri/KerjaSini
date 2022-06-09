@@ -1,0 +1,9 @@
+FROM rust:1.59 AS builder
+COPY ./ ./
+
+RUN cargo build --release
+
+FROM rust:1.59-slim-buster
+COPY --from=builder ./target/release/client ./target/release/client
+
+CMD ["/target/release/client"]
