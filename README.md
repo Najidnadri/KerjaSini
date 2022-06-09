@@ -20,7 +20,7 @@ A place where local talents meets local employers.
 - [x] Complete 5 type of database queries
 - [ ] sql injection preventation
 - [x] password hashing and strength check
-- [ ] email and phone number taken check
+- [x] email and phone number taken check
 - [ ] Complete all error handling
 - [ ] test by sending multiple request using browserstack
 - [ ] launch the database into the cloud
