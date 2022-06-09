@@ -10,7 +10,7 @@ use serde::{Deserialize, Serialize};
 //use openssl::{ssl::{SslAcceptor, SslFiletype, SslMethod}};
 use tiberius::{Config, FromSqlOwned};
 use bb8::{self, Pool};
-use crate::{login_signup::{EmployeeSignupInfo, EmployerSignupInfo, EmployeeLoginCreds, EmployerLoginCreds}, handler::{decrypt_body, ServerResponse}, database::{query_employee_signup, query_employer_signup, query_employee_login, query_employer_login, query_employer_salt, query_employee_salt}};
+use crate::{login_signup::{EmployeeSignupInfo, EmployerSignupInfo, EmployeeLoginCreds, EmployerLoginCreds}, handler::{decrypt_body, ServerResponse, check_creds_exist_employer, check_creds_exist_employee}, database::{query_employee_signup, query_employer_signup, query_employee_login, query_employer_login, query_employer_salt, query_employee_salt}};
 
 type Dbpool = bb8::Pool<ConnectionManager>;
 
@@ -87,9 +87,27 @@ async fn employee_signup(body: web::Json<Buffer>, pool: web::Data<Dbpool>) -> im
         println!("main::employee_signup {:?}", e);
         return web::Json(ServerResponse::ServerFailed);
     }
+    let deserial_data = deserial_data.unwrap();
+
+    //check email, phone number, company name
+    let conn = pool.get().await;
+    if let Err(e) = &conn {
+        println!("error getting conn from pool main::employee_signup: {:?}", e);
+        return web::Json(ServerResponse::ServerFailed)
+    }
+    let mut conn = conn.unwrap();
+    let creds_check_res = check_creds_exist_employee(&mut conn, &deserial_data.phonenumber, &deserial_data.email).await;
+    if let Err(_e) = creds_check_res {
+        return web::Json(ServerResponse::ServerFailed)
+    }
+    let creds_check_res = creds_check_res.unwrap();
+    if let Some(signuperr) = creds_check_res {
+        return web::Json(ServerResponse::SignupErr(signuperr))
+    }
+    drop(creds_check_res);
 
     //upload to database
-    let query = query_employee_signup(deserial_data.unwrap());
+    let query = query_employee_signup(deserial_data);
     println!("{}", query);
     let conn = pool.get().await;
     if let Err(e) = &conn {
@@ -120,9 +138,27 @@ async fn employer_signup(body: web::Json<Buffer>, pool: web::Data<Dbpool>) -> im
         println!("main::employersignupinfo {:?}", e);
         return web::Json(ServerResponse::ServerFailed)
     }
+    let deserial_data = deserial_data.unwrap();
+
+    //check email, phone number, company name
+    let conn = pool.get().await;
+    if let Err(e) = &conn {
+        println!("error getting conn from pool main::employer_signup: {:?}", e);
+        return web::Json(ServerResponse::ServerFailed)
+    }
+    let mut conn = conn.unwrap();
+    let creds_check_res = check_creds_exist_employer(&mut conn, &deserial_data.phonenumber, &deserial_data.email , &deserial_data.companyname).await;
+    if let Err(_e) = creds_check_res {
+        return web::Json(ServerResponse::ServerFailed)
+    }
+    let creds_check_res = creds_check_res.unwrap();
+    if let Some(signuperr) = creds_check_res {
+        return web::Json(ServerResponse::SignupErr(signuperr))
+    }
+    drop(creds_check_res);
 
     //upload to database
-    let query = query_employer_signup(deserial_data.unwrap());
+    let query = query_employer_signup(deserial_data);
     println!("{}", query);
     let conn = pool.get().await;
     if let Err(e) = &conn {

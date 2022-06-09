@@ -39,11 +39,13 @@ pub struct EmployerSignupInfo {
     pub phonenumber_taken: bool,
     pub companyname_taken: bool,
     pub signup_button: bool,
+    pub email_err: bool,
+    pub phonenumber_err: bool,
 }
 
 impl EmployerSignupInfo {
     pub fn new() -> Self {
-        EmployerSignupInfo { signup_button: false, companyname_taken: false, phonenumber_taken: false, email_taken: false, retype_pass_err: false, companyname: String::new(), fullname: String::new(), phonenumber: String::new(), website: String::new(), regnum: String::new(), pass: String::new(), salt: String::new(), email: String::new(), retype_pass: String::new(), pass_visible: true, postcode: String::new(), pass_status: PassStatus::Zero }
+        EmployerSignupInfo { email_err: false, phonenumber_err: false,  signup_button: false, companyname_taken: false, phonenumber_taken: false, email_taken: false, retype_pass_err: false, companyname: String::new(), fullname: String::new(), phonenumber: String::new(), website: String::new(), regnum: String::new(), pass: String::new(), salt: String::new(), email: String::new(), retype_pass: String::new(), pass_visible: true, postcode: String::new(), pass_status: PassStatus::Zero }
     }
 
     pub fn clear(&mut self) {
@@ -63,6 +65,8 @@ impl EmployerSignupInfo {
         self.phonenumber_taken = false;
         self.companyname_taken = false;
         self.signup_button = false;
+        self.email_err = false;
+        self.phonenumber_err = false;
     }
 }
 
@@ -83,11 +87,13 @@ pub struct EmployeeSignupInfo {
     pub email_taken: bool,
     pub phonenumber_taken: bool,
     pub signup_button: bool,
+    pub email_err: bool,
+    pub phonenumber_err: bool,
 }
 
 impl EmployeeSignupInfo {
     pub fn new() -> Self {
-        EmployeeSignupInfo { signup_button: false, retype_pass_err: false, email_taken: false, phonenumber_taken: false, pass_status: PassStatus::Zero, fullname: String::new(), username: String::new(), email: String::new(), age: String::new(), phonenumber: String::new(), pass: String::new(), salt: String::new(), retype_pass: String::new(), pass_visible: true, postcode: String::new() }
+        EmployeeSignupInfo { email_err: false, phonenumber_err: false, signup_button: false, retype_pass_err: false, email_taken: false, phonenumber_taken: false, pass_status: PassStatus::Zero, fullname: String::new(), username: String::new(), email: String::new(), age: String::new(), phonenumber: String::new(), pass: String::new(), salt: String::new(), retype_pass: String::new(), pass_visible: true, postcode: String::new() }
     }
     pub fn clear(&mut self) {
         self.phonenumber.clear();
@@ -104,6 +110,8 @@ impl EmployeeSignupInfo {
         self.email_taken = false;
         self.phonenumber_taken = false;
         self.signup_button = false;
+        self.phonenumber_err = false;
+        self.email_err = false;
     }
 }
 
@@ -111,6 +119,8 @@ pub fn employer_signup(event: &mut Event, ctx: &egui::CtxRef) {
     //check signup button enable
     if event.data.employer_signup.pass_status == PassStatus::Good {
         if event.data.employer_signup.retype_pass_err == false &&
+        event.data.employer_signup.email_err == false &&
+        event.data.employer_signup.phonenumber_err == false &&
         !event.data.employer_signup.email.is_empty() &&
         !event.data.employer_signup.phonenumber.is_empty() &&
         !event.data.employer_signup.fullname.is_empty() &&
@@ -155,8 +165,11 @@ pub fn employer_signup(event: &mut Event, ctx: &egui::CtxRef) {
                         if event.data.employer_signup.phonenumber_taken {
                             ui.colored_label(Color32::RED, "Phone Number taken!");
                         }
+                        if event.data.employer_signup.phonenumber_err {
+                            ui.colored_label(Color32::RED, "Enter all digits only");
+                        }
                         ui.add_space(5.);
-                        ui.add_sized([280., 20.], egui::TextEdit::singleline(&mut event.data.employer_signup.phonenumber));
+                        let phonenumber_line = ui.add_sized([280., 20.], egui::TextEdit::singleline(&mut event.data.employer_signup.phonenumber));
                         //fullname
                         ui.add_space(10.);
                         ui.colored_label(Color32::BLACK, "Full Name");
@@ -173,8 +186,11 @@ pub fn employer_signup(event: &mut Event, ctx: &egui::CtxRef) {
                         if event.data.employer_signup.email_taken {
                             ui.colored_label(Color32::RED, "Email Taken!");
                         }
+                        if event.data.employer_signup.email_err {
+                            ui.colored_label(Color32::RED, "Wrong email format");
+                        }
                         ui.add_space(5.);
-                        ui.add_sized([280., 20.], egui::TextEdit::singleline(&mut event.data.employer_signup.email));
+                        let email_line = ui.add_sized([280., 20.], egui::TextEdit::singleline(&mut event.data.employer_signup.email));
                         //regnum
                         ui.add_space(10.);
                         ui.colored_label(Color32::BLACK, "Regnum");
@@ -225,7 +241,7 @@ pub fn employer_signup(event: &mut Event, ctx: &egui::CtxRef) {
                         //buttons
                         ui.add_space(20.);
                         //sign up button
-                        let signup_button = ui.add_enabled_ui(event.data.employer_signup.signup_button, |ui| {
+                        let _signup_button = ui.add_enabled_ui(event.data.employer_signup.signup_button, |ui| {
                             let button = ui.add_sized([300., 30.], egui::Button::new("Sign up as employer").fill(egui::Color32::BLUE).text_color(egui::Color32::WHITE));
                             if button.clicked() {
                                 event.data.employer_signup.retype_pass.clear();
@@ -253,6 +269,22 @@ pub fn employer_signup(event: &mut Event, ctx: &egui::CtxRef) {
                                 event.data.employer_signup.retype_pass_err = false;
                             }
                         }
+
+                        if phonenumber_line.lost_focus() {
+                            if !event.data.employer_signup.phonenumber.clone().bytes().all(|c| c.is_ascii_digit()) {
+                                event.data.employer_signup.phonenumber_err = true;
+                            } else {
+                                event.data.employer_signup.phonenumber_err = false;
+                            }
+                        }
+
+                        if email_line.lost_focus() {
+                            if !event.data.employer_signup.email.clone().contains('@') {
+                                event.data.employer_signup.email_err = true;
+                            } else {
+                                event.data.employer_signup.email_err = false;
+                            }
+                        }
     
                         if pass_line.lost_focus() {
                             let pass_status = check_password_secure(&event.data.employer_signup.pass);
@@ -270,6 +302,8 @@ pub fn employee_signup(event: &mut Event, ctx: &egui::CtxRef) {
     //check signup button enable
     if event.data.employee_signup.pass_status == PassStatus::Good {
         if event.data.employee_signup.retype_pass_err == false &&
+        event.data.employee_signup.email_err == false &&
+        event.data.employee_signup.phonenumber_err == false &&
         !event.data.employee_signup.email.is_empty() &&
         !event.data.employee_signup.phonenumber.is_empty() &&
         !event.data.employee_signup.fullname.is_empty() &&
@@ -315,16 +349,22 @@ pub fn employee_signup(event: &mut Event, ctx: &egui::CtxRef) {
                         if event.data.employee_signup.phonenumber_taken {
                             ui.colored_label(Color32::RED, "Phone Number taken!");
                         }
+                        if event.data.employee_signup.phonenumber_err {
+                            ui.colored_label(Color32::RED, "Enter all digits only");
+                        }
                         ui.add_space(5.);
-                        ui.add_sized([280., 20.], egui::TextEdit::singleline(&mut event.data.employee_signup.phonenumber));
+                        let phonenumber_line = ui.add_sized([280., 20.], egui::TextEdit::singleline(&mut event.data.employee_signup.phonenumber));
                         //email
                         ui.add_space(10.);
                         ui.colored_label(Color32::BLACK, "Email");
                         if event.data.employee_signup.email_taken {
-                            ui.colored_label(Color32::RED, "Phone Number taken!");
+                            ui.colored_label(Color32::RED, "Email Taken!");
+                        }
+                        if event.data.employee_signup.email_err {
+                            ui.colored_label(Color32::RED, "Wrong email format");
                         }
                         ui.add_space(5.);
-                        ui.add_sized([280., 20.], egui::TextEdit::singleline(&mut event.data.employee_signup.email));
+                        let email_line = ui.add_sized([280., 20.], egui::TextEdit::singleline(&mut event.data.employee_signup.email));
                         //age
                         ui.add_space(10.);
                         ui.colored_label(Color32::BLACK, "Age");
@@ -374,18 +414,18 @@ pub fn employee_signup(event: &mut Event, ctx: &egui::CtxRef) {
                         let retype_pass = ui.add_sized([280., 20.], egui::TextEdit::singleline(&mut event.data.employee_signup.retype_pass));
                         //buttons
                         ui.add_space(20.);
-                        let signup_button = ui.add_enabled_ui(event.data.employee_signup.signup_button, |ui| {
-                            ui.add_sized([300., 30.], egui::Button::new("Sign up as employee").fill(egui::Color32::BLUE).text_color(egui::Color32::WHITE));
+                        let _signup_button = ui.add_enabled_ui(event.data.employee_signup.signup_button, |ui| {
+                            let button = ui.add_sized([300., 30.], egui::Button::new("Sign up as employee").fill(egui::Color32::BLUE).text_color(egui::Color32::WHITE));
+                            if button.clicked() {
+                                event.data.employee_signup.retype_pass.clear();
+                                //make client request
+                                let client_request = ClientRequest::EmployeeSignup(event.data.employee_signup.clone());
+                                let response = send_request(client_request);
+                                filter_response(event, response);
+                            }
                         });
                         let back_button = ui.add_sized([300., 30.], egui::Button::new("Back").fill(egui::Color32::GRAY).text_color(egui::Color32::WHITE));
                         ui.add_space(10.);
-                        if signup_button.response.clicked() {
-                            event.data.employee_signup.retype_pass.clear();
-                            //make client request
-                            let client_request = ClientRequest::EmployeeSignup(event.data.employee_signup.clone());
-                            let response = send_request(client_request);
-                            filter_response(event, response);
-                        }
                         if back_button.clicked() {
                             event.data.employee_signup.pass.clear();
                             event.data.employee_signup.retype_pass.clear();
@@ -397,6 +437,22 @@ pub fn employee_signup(event: &mut Event, ctx: &egui::CtxRef) {
                                 event.data.employee_signup.retype_pass_err = true;
                             } else {
                                 event.data.employee_signup.retype_pass_err = false;
+                            }
+                        }
+
+                        if phonenumber_line.lost_focus() {
+                            if !event.data.employee_signup.phonenumber.clone().bytes().all(|c| c.is_ascii_digit()) {
+                                event.data.employee_signup.phonenumber_err = true;
+                            } else {
+                                event.data.employee_signup.phonenumber_err = false;
+                            }
+                        }
+
+                        if email_line.lost_focus() {
+                            if !event.data.employee_signup.email.clone().contains('@') {
+                                event.data.employee_signup.email_err = true;
+                            } else {
+                                event.data.employee_signup.email_err = false;
                             }
                         }
     

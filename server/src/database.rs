@@ -1,4 +1,4 @@
-use crate::login_signup::{EmployeeSignupInfo, EmployerSignupInfo, EmployeeLoginCreds};
+use crate::login_signup::{EmployeeSignupInfo, EmployerSignupInfo};
 
 
 
@@ -77,6 +77,31 @@ pub fn query_employee_salt() -> String {
 pub fn query_employer_salt() -> String {
     "SELECT Salt FROM Employer
     WHERE PhoneNumber = @p1".to_string()
+}
+
+pub fn query_phone_number_employee() -> String {
+    "SELECT PhoneNumber FROM Employee
+    WHERE PhoneNumber = @P1".to_string()
+}
+
+pub fn query_phone_number_employer() -> String {
+    "SELECT PhoneNumber FROM Employer
+    WHERE PhoneNumber = @P1".to_string()
+}
+
+pub fn query_email_employer() -> String {
+    "SELECT Email FROM Employer
+    WHERE Email = @P1".to_string()
+}
+
+pub fn query_email_employee() -> String {
+    "SELECT Email FROM Employee
+    WHERE Email = @P1".to_string()
+}
+
+pub fn query_companyname() -> String {
+    "SELECT Companyname FROM Employer
+    WHERE Companyname = @P1".to_string()
 }
 
 pub fn _sqli_checker(_params: Vec<&str>) -> bool {

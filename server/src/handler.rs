@@ -1,7 +1,9 @@
+use bb8::PooledConnection;
+use bb8_tiberius::ConnectionManager;
 use openssl::rsa::{Rsa, Padding};
 use serde::{Deserialize, Serialize};
 
-use crate::Buffer;
+use crate::{Buffer, database::{query_phone_number_employee, query_email_employee, query_phone_number_employer, query_email_employer, query_companyname}};
 
 
 const PRIVATE_KEY: &str = "-----BEGIN RSA PRIVATE KEY-----
@@ -54,6 +56,11 @@ pub struct SignupErr {
     pub company_name_taken: bool,
 }
 
+#[derive(Debug)]
+pub enum CheckCredsError {
+    ServerError,
+}
+
 pub async fn decrypt_body(body: Buffer) -> String {
     let mut data = String::new();
     for bytes in body.bytes {
@@ -66,4 +73,154 @@ pub async fn decrypt_body(body: Buffer) -> String {
     }
     let data = data.trim_matches(char::from(0)).to_string();
     data
+}
+
+pub async fn check_creds_exist_employee(conn: &mut PooledConnection<'_, ConnectionManager>,
+    phone_number: &str,
+    email: &str) -> Result<Option<SignupErr>, CheckCredsError> {
+    
+    let mut phonenumber_taken = false;
+    let mut email_taken = false;
+    
+    //phone number
+    //create query
+    let query = query_phone_number_employee();
+    let response = conn.query(&query, &[&phone_number.trim()]).await;
+    if let Err(e) = &response {
+        println!("error in executing query handler::chech_creds_exist_employee: {:?}", e);
+        return Err(CheckCredsError::ServerError)
+    }
+    //check row exist
+    let row_result = response.unwrap()
+    .into_row()
+    .await;
+    if let Err(e) = &row_result {
+        println!("error into_row() handler::check_creds_exist_employee: {:?}", e);
+        return Err(CheckCredsError::ServerError)
+    }
+    if let Some(_) = &row_result.as_ref().unwrap() {
+        println!("Phone number taken : query = {:?}", &query);
+        phonenumber_taken = true;
+    }
+
+    //EMAIL
+    //create query
+    let query = query_email_employee();
+    let response = conn.query(&query, &[&email.trim()]).await;
+    if let Err(e) = &response {
+        println!("error in executing query handler::chech_creds_exist_employee: {:?}", e);
+        return Err(CheckCredsError::ServerError)
+    }
+
+    //check row exist
+    let row_result = response.unwrap()
+    .into_row()
+    .await;
+    if let Err(e) = &row_result {
+        println!("error into_row() handler::check_creds_exist_employee: {:?}", e);
+        return Err(CheckCredsError::ServerError)
+    }
+    if let Some(_) = &row_result.as_ref().unwrap() {
+        println!("email taken : query = {:?}", &query);
+        email_taken = true;
+    }
+
+    //conclude
+    if !phonenumber_taken && !email_taken {
+        return Ok(None)
+    } else {
+        let err = SignupErr {
+            email_taken,
+            phone_number_taken: phonenumber_taken,
+            company_name_taken: false
+        };
+        return Ok(Some(err))
+    }
+}
+
+pub async fn check_creds_exist_employer(conn: &mut PooledConnection<'_, ConnectionManager>,
+    phone_number: &str,
+    email: &str,
+    companyname: &str) -> Result<Option<SignupErr>, CheckCredsError> {
+    
+    let mut phonenumber_taken = false;
+    let mut email_taken = false;
+    let mut companyname_taken = false;
+    
+    //phone number
+    //create query
+    let query = query_phone_number_employer();
+    let response = conn.query(&query, &[&phone_number.trim()]).await;
+    if let Err(e) = &response {
+        println!("error in executing query handler::chech_creds_exist_employer: {:?}", e);
+        return Err(CheckCredsError::ServerError)
+    }
+    //check row exist
+    let row_result = response.unwrap()
+    .into_row()
+    .await;
+    if let Err(e) = &row_result {
+        println!("error into_row() handler::check_creds_exist_employer: {:?}", e);
+        return Err(CheckCredsError::ServerError)
+    }
+    if let Some(_) = &row_result.as_ref().unwrap() {
+        println!("Phone number taken : query = {:?}", &query);
+        phonenumber_taken = true;
+    }
+
+    //EMAIL
+    //create query
+    let query = query_email_employer();
+    let response = conn.query(&query, &[&email.trim()]).await;
+    if let Err(e) = &response {
+        println!("error in executing query handler::chech_creds_exist_employer: {:?}", e);
+        return Err(CheckCredsError::ServerError)
+    }
+
+    //check row exist
+    let row_result = response.unwrap()
+    .into_row()
+    .await;
+    if let Err(e) = &row_result {
+        println!("error into_row() handler::check_creds_exist_employer: {:?}", e);
+        return Err(CheckCredsError::ServerError)
+    }
+    if let Some(_) = &row_result.as_ref().unwrap() {
+        println!("email taken : query = {:?}", &query);
+        email_taken = true;
+    }
+
+    //COMPANY NAME
+    //create query
+    let query = query_companyname();
+    let response = conn.query(&query, &[&companyname.trim()]).await;
+    if let Err(e) = &response {
+        println!("error in executing query handler::check_creds_exist_employer: {:?}", e);
+        return Err(CheckCredsError::ServerError)
+    }
+
+    //check row exist
+    let row_result = response.unwrap()
+    .into_row()
+    .await;
+    if let Err(e) = &row_result {
+        println!("error into_row() handler::check_creds_exist_employer: {:?}", e);
+        return Err(CheckCredsError::ServerError)
+    }
+    if let Some(_) = &row_result.as_ref().unwrap() {
+        println!("company name taken : query = {:?}", &query);
+        companyname_taken = true;
+    }
+
+    //conclude
+    if !phonenumber_taken && !email_taken && !companyname_taken {
+        return Ok(None)
+    } else {
+        let err = SignupErr {
+            email_taken,
+            phone_number_taken: phonenumber_taken,
+            company_name_taken: companyname_taken,
+        };
+        return Ok(Some(err))
+    }
 }

@@ -27,6 +27,8 @@ pub struct EmployeeSignupInfo {
     pub email_taken: bool,
     pub phonenumber_taken: bool,
     pub signup_button: bool,
+    pub email_err: bool,
+    pub phonenumber_err: bool,
 }
 
 
@@ -49,6 +51,8 @@ pub struct EmployerSignupInfo {
     pub phonenumber_taken: bool,
     pub companyname_taken: bool,
     pub signup_button: bool,
+    pub email_err: bool,
+    pub phonenumber_err: bool,
 }
 
 
