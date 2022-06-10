@@ -18,6 +18,7 @@ A place where local talents meets local employers.
 - [x] set up connection pool for database access 
 - [x] data encryption between client and server
 - [x] Complete 5 type of database queries
+- [ ] Implement REACT web
 - [ ] sql injection preventation
 - [x] password hashing and strength check
 - [x] email and phone number taken check
