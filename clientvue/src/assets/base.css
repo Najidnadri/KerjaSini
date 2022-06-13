@@ -50,3 +50,8 @@
   }
 }
 
+
+body {
+  transition: color 0.5s, background-color 0.5s;
+  font-family: 'Courier New',monospace, -apple-system,system-ui,"Segoe UI",Roboto,"Helvetica Neue",Ubuntu,sans-serif;
+}
