@@ -2,15 +2,22 @@ mod login_signup;
 mod handler;
 mod database;
 mod error;
+mod ws;
+mod messages;
+mod warehouse;
 
-use actix_web::{post, Responder, HttpServer, App, web, get};
+use actix::{Addr, Actor};
+use actix_files::NamedFile;
+use actix_web::{post, Responder, HttpServer, App, web::{self, Payload, Path, Data}, get, HttpResponse, HttpRequest};
 use bb8_tiberius::ConnectionManager;
 use error::Error;
 use serde::{Deserialize, Serialize};
 //use openssl::{ssl::{SslAcceptor, SslFiletype, SslMethod}};
 use tiberius::Config;
 use bb8::{self, Pool};
-use crate::{login_signup::{EmployeeSignupInfo, EmployerSignupInfo, EmployeeLoginCreds, EmployerLoginCreds}, handler::{decrypt_body, ServerResponse, check_creds_exist_employer, check_creds_exist_employee}, database::{query_employee_signup, query_employer_signup, query_employee_login, query_employer_login, query_employer_salt, query_employee_salt, query_and_get_first_row}};
+use uuid::Uuid;
+use warehouse::Warehouse;
+use crate::{login_signup::{EmployeeSignupInfo, EmployerSignupInfo, EmployeeLoginCreds, EmployerLoginCreds}, handler::{decrypt_body, ServerResponse, check_creds_exist_employer, check_creds_exist_employee}, database::{query_employee_signup, query_employer_signup, query_employee_login, query_employer_login, query_employer_salt, query_employee_salt, query_and_get_first_row}, ws::{WsConn, Side}};
 
 type Dbpool = bb8::Pool<ConnectionManager>;
 
@@ -47,6 +54,9 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
     builder.set_certificate_chain_file("cert.pem").unwrap();
     */
 
+    //data
+    let warehouse = Warehouse::default().start();
+
     HttpServer::new(move || {
         App::new()
         .app_data(web::Data::new(pool.clone()))
@@ -57,8 +67,11 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
         .service(get_employer_salt)
         .service(employer_signup)
         .service(employer_login)
+        .service(echo)
+        .service(start_websocket)
+        .app_data(web::Data::new(warehouse.clone()))
     })
-    .bind(("127.0.0.1", 8000))?
+    .bind(("127.0.0.1", 8080))?
     //.bind_openssl("127.0.0.1:8000", builder)? //bind for ssl
     .workers(4)
     .run()
@@ -68,10 +81,19 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
     Ok(())
 }
 
+#[post("/echo")]
+async fn echo(body: web::Json<Buffer>) -> impl Responder {
+    //decrypt
+    let decrypt_data = decrypt_body(body.into_inner()).await;
+    println!("{}", decrypt_data);
+
+    HttpResponse::Ok()
+}
+
 #[get("/")]
 async fn index() -> impl Responder {
     
-    "hello world"
+    NamedFile::open_async("./static/index.html").await.unwrap()
 }
 
 #[post("/employeesignup")]
@@ -338,4 +360,17 @@ async fn get_employer_salt(body: web::Json<Buffer>, pool: web::Data<Dbpool>) -> 
     let server_response = ServerResponse::SaltReceived(salt.unwrap().to_string());
 
     web::Json(server_response)
+}
+
+
+#[get("/ws")]
+async fn start_websocket(req: HttpRequest, stream: Payload, srv: Data<Addr<Warehouse>>) -> impl Responder {
+    println!("starting websocket connection...");
+    let ws = WsConn::new(
+        Uuid::new_v4(),
+        srv.get_ref().clone(),
+        Side::Employer,
+    );
+    let resp = actix_web_actors::ws::start(ws, &req, stream).unwrap();
+    resp
 }
